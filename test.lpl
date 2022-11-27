@@ -1,5 +1,3 @@
 add 2, 2
-sub 4, 2
-mul 16, 16
-div 16, 2
-echo "Hello World!"
+add [result], 2
+echo "RESULT : ", [result]
