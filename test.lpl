@@ -1,7 +1,5 @@
 # The LPL Test file for debugging
 
-constant pi 3.14159
-copy [store_a], pi
+procedure main
 
-#echo "STORE_A : ", [store_a]
-#echo "STORE_B : ", [store_b]
+end

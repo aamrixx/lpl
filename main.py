@@ -19,6 +19,8 @@ class Token:
     Run = 'Run'
     Copy = 'Copy'
     Constant = 'Constant'
+    Procedure = 'Procedure'
+    End = 'End'
     Add = 'Add'
     Sub = 'Sub'
     Mul = 'Mul'
@@ -80,6 +82,10 @@ class Lexer:
                             self.tokens.append(Token(Token.Copy, 'copy'))
                         case 'constant':
                             self.tokens.append(Token(Token.Constant, 'constant'))
+                        case 'procedure':
+                            self.tokens.appned(Token(Token.Procedure, 'procedure'))
+                        case 'end':
+                            self.tokens.appned(Token(Token.End, 'end'))
                         case 'add':
                             self.tokens.append(Token(Token.Add, 'add'))
                         case 'sub':
@@ -169,7 +175,7 @@ class Parser:
                     if self.tokens[1].literal in files:
                         return
                 
-                die('\'{self.tokens[1].literal}\' could not be found : line {self.line_num}')
+                die(f'\'{self.tokens[1].literal}\' could not be found : line {self.line_num}')
             case Token.Copy:
                 if len(self.tokens) != 4:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
@@ -191,6 +197,11 @@ class Parser:
                 
                 if self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
+                elif self.tokens[3].kind == Token.Iden:
+                    if self.stores.search_dict(self.tokens[3].literal) == None:
+                        die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
+                    else:
+                        self.tokens[3] = self.stores.search_dict(self.tokens[3].literal)
             case Token.Constant:
                 if len(self.tokens) != 3:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
@@ -212,12 +223,18 @@ class Parser:
             case Token.Add | Token.Sub | Token.Mul | Token.Div:
                 if len(self.tokens) != 4:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
-
-                if self.tokens[1].kind != Token.Num and not self.is_store(self.tokens[1].kind):
-                    die(f'\'{self.tokens[1].literal}\' expected number/store : line {self.line_num}')
                 
-                if self.tokens[3].kind != Token.Num and not self.is_store(self.tokens[3].kind):
-                    die(f'\'{self.tokens[3].literal}\' expected number/store : line {self.line_num}')
+                print(self.tokens[3].kind)
+
+                if self.tokens[1].kind != Token.Num and \
+                   self.tokens[1].kind != Token.Iden and not \
+                   self.is_store(self.tokens[1].literal):
+                    die(f'\'{self.tokens[1].literal}\' expected number/store/constant : line {self.line_num}')
+
+                if self.tokens[3].kind != Token.Num and \
+                   self.tokens[3].kind != Token.Iden and not \
+                   self.is_store(self.tokens[3].literal):
+                    die(f'\'{self.tokens[3].literal}\' expected number/store/constant : line {self.line_num}')
 
                 if self.tokens[2].kind != Token.Comma:
                     die(f'\'{self.tokens[2].literal}\' expected comma : line {self.line_num}')
@@ -226,14 +243,23 @@ class Parser:
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
                     if self.tokens[1] == Token('', ''):
                                 die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
-                
-                if self.is_store(self.tokens[3].kind):
+                elif self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
                     if self.tokens[2] == Token('', ''):
                                 die(f'\'{self.tokens[2].literal}\' not a store or result store is immutable : line {self.line_num}')
+                elif self.tokens[1].kind == Token.Iden:
+                    if self.stores.search_dict(self.tokens[1].literal) == None:
+                        die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
+                    else:
+                        self.tokens[1] = self.stores.search_dict(self.tokens[1].literal)
+                elif self.tokens[3].kind == Token.Iden:
+                    if self.stores.search_dict(self.tokens[3].literal) == None:
+                        die(f'\'{self.tokens[3].literal}\' undefined constant : line {self.line_num}')
+                    else:
+                        self.tokens[3] = self.stores.search_dict(self.tokens[3].literal)
             case Token.Echo:
                 if self.tokens[len(self.tokens) - 1].kind == Token.Comma:
-                    die(f'\'{self.tokens[2].literal}\' expected number/string/store : line {self.line_num}')
+                    die(f'\'{self.tokens[2].literal}\' expected number/string/store/constant : line {self.line_num}')
 
                 i = 1
                 while i < len(self.tokens):
@@ -247,7 +273,10 @@ class Parser:
                             if self.tokens[i] == Token('', ''):
                                 die(f'\'{self.tokens[i].literal}\' not a store or result store is immutable : line {self.line_num}')
                         else:
-                            die(f'\'{self.tokens[i].literal}\' expected number/string/store : line {self.line_num}')
+                            if self.stores.search_dict(self.tokens[i].literal) != None:
+                                self.tokens[i] = self.stores.search_dict(self.tokens[i].literal)
+                            else:
+                                die(f'\'{self.tokens[i].literal}\' expected number/string/store/constant : line {self.line_num}')
 
                     i += 1
             case _:
