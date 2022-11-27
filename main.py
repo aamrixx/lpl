@@ -4,7 +4,7 @@ def usage():
     print('usage : [python] [--print_tokens] [file')
 
 def die(reason):
-    print('\x1b[1;31merror\x1b[0m :', reason)
+    print('\x1b[1;31merror\x1b[0m :', reason, file=sys.stderr)
     sys.exit(1)
 
 class Token:
