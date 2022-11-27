@@ -122,13 +122,13 @@ class Lexer:
 
 class Stores:
     def __init__(self):
-        self.lpl_result = None
-        self.lpl_store_a = None
-        self.lpl_store_b = None
-        self.lpl_store_c = None
-        self.lpl_store_d = None
-        self.lpl_store_e = None
-        self.lpl_store_f = None
+        self.lpl_result = Token('', '')
+        self.lpl_store_a = Token('', '')
+        self.lpl_store_b = Token('', '')
+        self.lpl_store_c = Token('', '')
+        self.lpl_store_d = Token('', '')
+        self.lpl_store_e = Token('', '')
+        self.lpl_store_f = Token('', '')
 
 class Parser:
     def __init__(self, tokens, stores):
@@ -148,7 +148,7 @@ class Parser:
                 if not self.is_store(self.tokens[1].kind):
                     die('\'{}\' expected store : line {}'.format(self.tokens[1].literal, self.line_num))
                 
-                if self.tokens[3].kind != Token.Num and not self.is_store(self.tokens[3].kind):
+                if self.tokens[3].kind != Token.Num and self.tokens[3].kind != Token.String and not self.is_store(self.tokens[3].kind):
                     die('\'{}\' expected number/store : line {}'.format(self.tokens[3].literal, self.line_num))
 
                 if self.tokens[2].kind != Token.Comma:
@@ -174,21 +174,31 @@ class Parser:
 
                 if self.is_store(self.tokens[1].kind):
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
+                    if self.tokens[1] == Token('', ''):
+                                die('\'{}\' not a store or result store is immutable : line {}'.format(self.tokens[1].literal, self.line_num))
                 
                 if self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
+                    if self.tokens[2] == Token('', ''):
+                                die('\'{}\' not a store or result store is immutable : line {}'.format(self.tokens[2].literal, self.line_num))
             case Token.Echo:
                 if self.tokens[len(self.tokens) - 1].kind == Token.Comma:
                     die('\'{}\' expected number/string/store : line {}'.format(self.tokens[2].literal, self.line_num))
 
                 i = 1
                 while i < len(self.tokens):
-                    if self.is_store(self.tokens[i].kind):
-                        self.tokens[i] = self.get_store_data(self.tokens[i].kind)
-
                     if self.tokens[i].kind == Token.Num or self.tokens[i].kind == Token.String:
                         if i < len(self.tokens) - 1 and self.tokens[i + 1].kind != Token.Comma:
                             die('\'{}\' expected comma : line {}'.format(self.tokens[i + 1].literal, self.line_num))
+                    else:
+                        if self.is_store(self.tokens[i].kind) or self.tokens[i].kind == Token.Comma:
+                            self.tokens[i] = self.get_store_data(self.tokens[i].kind)
+                           
+                            if self.tokens[i] == Token('', ''):
+                                die('\'{}\' not a store or result store is immutable : line {}'.format(self.tokens[i].literal, self.line_num))
+                        else:
+                            die('\'{}\' expected number/string/store : line {}'.format(self.tokens[i].literal, self.line_num))
+
 
                     i += 1
 
@@ -218,7 +228,7 @@ class Parser:
             case Token.StoreF:
                 return self.stores.lpl_store_f
             case _:
-                return None
+                return Token('', '')
 
 class Interpreter:
     def __init__(self, tokens, stores):
@@ -233,17 +243,17 @@ class Interpreter:
             case Token.Assign:
                 match self.tokens[1].kind:
                     case Token.StoreA:
-                        return self.stores.lpl_store_a
+                        self.stores.lpl_store_a = self.tokens[3]
                     case Token.StoreB:
-                        return self.stores.lpl_store_b
+                        self.stores.lpl_store_b = self.tokens[3]
                     case Token.StoreC:
-                        return self.stores.lpl_store_c
+                        self.stores.lpl_store_c = self.tokens[3]
                     case Token.StoreD:
-                        return self.stores.lpl_store_d
+                        self.stores.lpl_store_e = self.tokens[3]
                     case Token.StoreE:
-                        return self.stores.lpl_store_e
+                        self.stores.lpl_store_d = self.tokens[3]
                     case Token.StoreF:
-                        return self.stores.lpl_store_f
+                        self.stores.lpl_store_f = self.tokens[3]
             case Token.Add:
                 self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
             case Token.Sub:
@@ -256,7 +266,6 @@ class Interpreter:
                 for element in self.tokens:
                     if element.kind == Token.Num or element.kind == Token.String:
                         print(element.literal, end='')
-
                 print('')
 
         print(self.stores.lpl_result.literal)

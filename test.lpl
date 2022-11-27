@@ -1,3 +1,3 @@
 assign [store_a], 100
-assign [store_b], [store_u]
-echo "RESULT : ", [store_a]
+assign [store_b], "Hello World"
+echo "RESULT : ", [store_b]
