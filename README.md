@@ -18,8 +18,8 @@ read - read from stdin
 ```
 We also have "registers" to put results or store things
 ```
-[result] - get the result of the last command (immutable)
 [list] - get the list (immutable)
+[result] - get the result of the last command (immutable)
 [store_a] - 1st general store (mutable)
 [store_b] - 2nd general store (mutable)
 [store_c] - 3rd general store (mutable)

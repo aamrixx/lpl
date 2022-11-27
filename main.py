@@ -78,16 +78,75 @@ class Lexer:
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
+        self.line_num = 1
+
+    def parse(self):
+        if len(self.tokens) == 0:
+            return
+        
+        match self.tokens[0].kind:
+            case Token.Push:
+                if len(self.tokens) != 2:
+                    die('\'{}\' requires 1 parameter : line {}'.format(self.tokens[0].literal, self.line_num))
+                
+                if self.tokens[1].kind != Token.Num:
+                    die('\'{}\' excpected number : line {}'.format(self.tokens[1].literal, self.line_num))
+
+            case Token.Add | Token.Sub | Token.Mul | Token.Div | Token.Pop:
+                if len(self.tokens) != 1:
+                    die('\'{}\' does not require any parameters : line {}'.format(self.tokens[0].literal, self.line_num))
+                    
+        self.line_num += 1
+
+class Stores:
+    def __init__(self):
+        self.lpl_list = []
+        self.lpl_result = 0.0
+
+class Interpreter:
+    def __init__(self, tokens, stores):
+        self.tokens = tokens
+        self.stores = stores
+        
+    def interpret(self):
+        if len(self.tokens) == 0:
+            return
+        
+        match self.tokens[0].kind:
+            case Token.Add:
+                for element in self.stores.lpl_list:
+                    self.stores.lpl_result += float(element)
+            case Token.Sub:
+                for element in self.stores.lpl_list:
+                    self.stores.lpl_result -= float(element)
+            case Token.Mul:
+                for element in self.stores.lpl_list:
+                    self.stores.lpl_result *= float(element)
+            case Token.Div:
+                for element in self.stores.lpl_list:
+                    self.stores.lpl_result /= float(element)
+            case Token.Push:
+                self.stores.lpl_list.append(float(self.tokens[1].literal))
+
+        print(self.stores.lpl_result)
 
 if __name__ == '__main__':
     args = sys.argv
     if len(args) != 2:
         die('invalid arguments')
 
+    stores = Stores()
+
     file = open(args[1])
     for line in file.readlines():
         lexer = Lexer(line)
         lexer.lex()
 
-        for token in lexer.tokens:
-            print(token.kind, token.literal)
+        parser = Parser(lexer.tokens)
+        parser.parse()
+
+        interpreter = Interpreter(parser.tokens, stores)
+        interpreter.interpret()
+
+        #for token in parser.tokens:
+        #    print(token.kind, token.literal)
