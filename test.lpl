@@ -1,3 +1,2 @@
-add 2, 2
-add [result], 2
-echo "RESULT : ", [result]
+assign [store_a], 100
+echo "RESULT : ", [store_a]

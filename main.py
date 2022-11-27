@@ -8,16 +8,20 @@ def die(reason):
     sys.exit(1)
 
 class Token:
+    # Syntax Sugar
     Comma = 'Comma'
     Num = 'Num'
+    # Types 
     Iden = 'Iden'
     String = 'String'
     Assign = 'Assign'
+    # Keywords
     Add = 'Add'
     Sub = 'Sub'
     Mul = 'Mul'
     Div = 'Div'
     Echo = 'Echo'
+    # Stores
     ResultStore = 'ResultStore'
     StoreA = 'StoreA'
     StoreB = 'StoreB'
@@ -125,27 +129,27 @@ class Parser:
             return
         
         match self.tokens[0].kind:
-            case Token.Add | Token.Sub | Token.Mul | Token.Div:
+            case Token.Add | Token.Sub | Token.Mul | Token.Div | Token.Assign:
                 if len(self.tokens) != 4:
                     die('\'{}\' requires 2 parameters : line {}'.format(self.tokens[0].literal, self.line_num))
 
                 if self.tokens[1].kind != Token.Num and not self.is_store(self.tokens[1].kind):
-                    die('\'{}\' excpected number/store : line {}'.format(self.tokens[1].literal, self.line_num))
+                    die('\'{}\' expected number/store : line {}'.format(self.tokens[1].literal, self.line_num))
                 
                 if self.tokens[3].kind != Token.Num and not self.is_store(self.tokens[3].kind):
-                    die('\'{}\' excpected number/store : line {}'.format(self.tokens[3].literal, self.line_num))
+                    die('\'{}\' expected number/store : line {}'.format(self.tokens[3].literal, self.line_num))
 
                 if self.tokens[2].kind != Token.Comma:
-                    die('\'{}\' excpected comma : line {}'.format(self.tokens[2].literal, self.line_num))
+                    die('\'{}\' expected comma : line {}'.format(self.tokens[2].literal, self.line_num))
 
-                if self.is_store(self.tokens[1].kind):
+                if self.is_store(self.tokens[1].kind) and self.tokens[0].kind != Token.Assign:
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
                 
                 if self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
             case Token.Echo:
                 if self.tokens[len(self.tokens) - 1].kind == Token.Comma:
-                    die('\'{}\' excpected number/string/store : line {}'.format(self.tokens[2].literal, self.line_num))
+                    die('\'{}\' expected number/string/store : line {}'.format(self.tokens[2].literal, self.line_num))
 
                 i = 1
                 while i < len(self.tokens):
@@ -154,7 +158,7 @@ class Parser:
 
                     if self.tokens[i].kind == Token.Num or self.tokens[i].kind == Token.String:
                         if i < len(self.tokens) - 1 and self.tokens[i + 1].kind != Token.Comma:
-                            die('\'{}\' excpected comma : line {}'.format(self.tokens[i + 1].literal, self.line_num))
+                            die('\'{}\' expected comma : line {}'.format(self.tokens[i + 1].literal, self.line_num))
 
                     i += 1
 
@@ -196,6 +200,20 @@ class Interpreter:
             return
         
         match self.tokens[0].kind:
+            case Token.Assign:
+                match self.tokens[1].kind:
+                    case Token.StoreA:
+                        return self.stores.lpl_store_a
+                    case Token.StoreB:
+                        return self.stores.lpl_store_b
+                    case Token.StoreC:
+                        return self.stores.lpl_store_c
+                    case Token.StoreD:
+                        return self.stores.lpl_store_d
+                    case Token.StoreE:
+                        return self.stores.lpl_store_e
+                    case Token.StoreF:
+                        return self.stores.lpl_store_f
             case Token.Add:
                 self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
             case Token.Sub:
