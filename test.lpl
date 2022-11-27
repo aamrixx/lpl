@@ -1,3 +1,7 @@
-assign [store_a], 100
-assign [store_b], "Hello World"
-echo "RESULT : ", [store_b]
+# The LPL Test file for debugging
+
+constant pi 3.14159
+copy [store_a], pi
+
+#echo "STORE_A : ", [store_a]
+#echo "STORE_B : ", [store_b]
