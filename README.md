@@ -5,13 +5,15 @@ It is a bit like a high level assembly or something else.<br>
 # Keywords
 These are all the keywords.
 ```
-assign - assign a value to a store
+run - Run another lpl script
+copy - copy a value to a store
+constant - A constant for storing randomness
 add - add 2 numbers
 sub - subtract 2 numbers
 mul - multiply 2 numbers
 div - divide 2 numbers
 echo - print to stdout
-read - read from stdin
+read - read from stdin - TODO
 ```
 We also have "registers" to put results or store things.
 ```
