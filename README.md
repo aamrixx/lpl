@@ -1,5 +1,5 @@
 # lpl
-Little Programming Language is based around Assembly.<br>
+Little Programming Language is based around Assembly (nothing like Assembly).<br>
 It is a bit like a high level assembly or something else.<br>
 
 # Keywords
