@@ -27,8 +27,8 @@ class Token:
     Mul = 'Mul'
     Div = 'Div'
     Echo = 'Echo'
+    Read = 'Read'
     # Stores
-    ResultStore = 'ResultStore'
     StoreA = 'StoreA'
     StoreB = 'StoreB'
     StoreC = 'StoreC'
@@ -99,20 +99,20 @@ class Lexer:
                             self.tokens.append(Token(Token.Div, 'div'))
                         case 'echo':
                             self.tokens.append(Token(Token.Echo, 'echo'))
-                        case '[result]':
-                            self.tokens.append(Token(Token.ResultStore, '[result]'))
-                        case '[store_a]':
-                            self.tokens.append(Token(Token.StoreA, '[store_a]'))
-                        case '[store_b]':
-                            self.tokens.append(Token(Token.StoreB, '[store_b]'))
-                        case '[store_c]':
-                            self.tokens.append(Token(Token.StoreC, '[store_c]'))
-                        case '[store_d]':
-                            self.tokens.append(Token(Token.StoreD, '[store_d]'))
-                        case '[store_e]':
-                            self.tokens.append(Token(Token.StoreE, '[store_e]'))
-                        case '[store_f]':
-                            self.tokens.append(Token(Token.StoreF, '[store_f]'))   
+                        case 'read':
+                            self.tokens.append(Token(Token.Read, 'read'))
+                        case '[a]':
+                            self.tokens.append(Token(Token.StoreA, '[a]'))
+                        case '[b]':
+                            self.tokens.append(Token(Token.StoreB, '[b]'))
+                        case '[c]':
+                            self.tokens.append(Token(Token.StoreC, '[c]'))
+                        case '[d]':
+                            self.tokens.append(Token(Token.StoreD, '[d]'))
+                        case '[e]':
+                            self.tokens.append(Token(Token.StoreE, '[e]'))
+                        case '[f]':
+                            self.tokens.append(Token(Token.StoreF, '[f]'))   
                         case _:
                             is_num = True
                             for char in buffer:
@@ -138,7 +138,6 @@ class Lexer:
 
 class Stores:
     def __init__(self):
-        self.lpl_result = Token('', '')
         self.lpl_store_a = Token('', '')
         self.lpl_store_b = Token('', '')
         self.lpl_store_c = Token('', '')
@@ -217,14 +216,14 @@ class Parser:
                 if self.tokens[2].kind != Token.Comma:
                     die(f'\'{self.tokens[2].literal}\' expected comma : line {self.line_num}')
 
-                if not self.is_store(self.tokens[1].kind) or self.tokens[1].kind == Token.ResultStore:
-                    die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
+                if not self.is_store(self.tokens[1].kind):
+                    die(f'\'{self.tokens[1].literal}\' not a store : line {self.line_num}')
                 
                 if self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
                 elif self.tokens[3].kind == Token.Iden:
                     if self.stores.search_constants_dict(self.tokens[3].literal) == None:
-                        die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
+                        die(f'\'{self.tokens[3].literal}\' undefined constant : line {self.line_num}')
                     else:
                         self.tokens[3] = self.stores.search_constants_dict(self.tokens[3].literal)
             case Token.Constant:
@@ -324,6 +323,12 @@ class Parser:
                                 die(f'\'{self.tokens[i].literal}\' undefined constant : line {self.line_num}')
 
                     i += 1
+            case Token.Read:
+                if len(self.tokens) != 2:
+                    die(f'\'{self.tokens[0].literal}\' requires 1 parameters : line {self.line_num}')
+
+                if self.tokens[1].kind != Token.String:
+                    die(f'\'{self.tokens[1].literal}\' expected string : line {self.line_num}')
             case _:
                 die(f'\'{self.tokens[0].literal}\' unknown literal : line {self.line_num}')
 
@@ -331,15 +336,13 @@ class Parser:
 
     def is_store(self, kind):
         match kind:
-            case Token.ResultStore | Token.StoreA | Token.StoreB | Token.StoreC | Token.StoreD | Token.StoreE | Token.StoreF:
+            case Token.StoreA | Token.StoreB | Token.StoreC | Token.StoreD | Token.StoreE | Token.StoreF:
                 return True
             case _:
                 return False
 
     def get_store_data(self, kind):
         match kind:
-            case Token.ResultStore:
-                return self.stores.lpl_result
             case Token.StoreA:
                 return self.stores.lpl_store_a
             case Token.StoreB:
@@ -405,18 +408,31 @@ class Interpreter:
                 case Token.End:
                     self.stores.procedure_index += 1
                 case Token.Add:
-                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
+                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
                 case Token.Sub:
-                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
+                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
                 case Token.Mul:
-                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
+                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
                 case Token.Div:
-                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
+                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
                 case Token.Echo:
                     for element in self.tokens:
                         if element.kind == Token.Num or element.kind == Token.String:
                             print(element.literal, end='')
                     print('')
+                case Token.Read:
+                    stdin = input(self.tokens[1].literal)
+
+                    is_num = True
+                    for char in stdin:
+                        if not char.isdigit() and char != '.' and char != '-':
+                            is_num = False
+                            break
+                            
+                    if is_num and stdin != '':
+                        self.stores.lpl_store_a = Token(Token.Num, stdin)
+                    elif stdin != '':
+                        self.stores.lpl_store_a = Token(Token.String, stdin)
 
 if __name__ == '__main__':
     args = sys.argv

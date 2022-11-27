@@ -3,3 +3,5 @@
 import "other.lpl"
 
 run hello_world
+read "What is your name : "
+echo [a]
