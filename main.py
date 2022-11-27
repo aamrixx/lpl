@@ -17,6 +17,7 @@ class Token:
     String = 'String'
     # Keywords
     Run = 'Run'
+    Import = 'Import'
     Assign = 'Assign'
     Constant = 'Constant'
     Procedure = 'Procedure'
@@ -78,6 +79,8 @@ class Lexer:
                     match buffer:
                         case 'run':
                             self.tokens.append(Token(Token.Run, 'run'))
+                        case 'import':
+                            self.tokens.append(Token(Token.Import, 'import'))
                         case 'assign':
                             self.tokens.append(Token(Token.Assign, 'assign'))
                         case 'constant':
@@ -176,7 +179,7 @@ class Parser:
         match self.tokens[0].kind:
             case Token.Run:
                 if len(self.tokens) != 2:
-                    die(f'\'{self.tokens[0].literal}\' requires 1 parameters : line {self.line_num}')
+                    die(f'\'{self.tokens[0].literal}\' requires 1 parameter : line {self.line_num}')
                 
                 if self.tokens[1].kind != Token.Iden:
                     die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
@@ -186,6 +189,18 @@ class Parser:
 
                 if self.stores.search_procedures_dict(self.tokens[1].literal) == None:
                     die(f'\'{self.tokens[1].literal}\' undefined procedure : line {self.line_num}')
+            case Token.Import:
+                if len(self.tokens) != 2:
+                    die(f'\'{self.tokens[0].literal}\' requires 1 parameter : line {self.line_num}')
+
+                if self.tokens[1].kind != Token.String:
+                    die(f'\'{self.tokens[1].literal}\' expected string : line {self.line_num}')
+
+                for _, _, files in os.walk('.'):
+                    if self.tokens[1].literal in files:
+                        return
+                
+                die(f'\'{self.tokens[1].literal}\' could not be found : line {self.line_num}')
             case Token.Assign:
                 if len(self.tokens) != 4:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
@@ -356,10 +371,19 @@ class Interpreter:
                 case Token.Run:
                     lines = self.stores.search_procedures_dict(self.tokens[1].literal)
 
-                    for line in lines:   
-                        #for token in line:
-                        #   print(token.kind, token.literal)                     
+                    for line in lines:                        
                         interpreter = Interpreter(line, stores)
+                        interpreter.interpret()
+                case Token.Import:
+                    file = open(self.tokens[1].literal)
+                    for line in file.readlines():
+                        lexer = Lexer(line)
+                        lexer.lex()
+
+                        parser.tokens = lexer.tokens
+                        parser.parse()
+
+                        interpreter = Interpreter(parser.tokens, stores)
                         interpreter.interpret()
                 case Token.Assign:
                     match self.tokens[1].kind:
