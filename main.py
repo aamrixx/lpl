@@ -8,12 +8,12 @@ class Token:
     Comma = 'Comma'
     Num = 'Num'
     Iden = 'Iden'
+    String = 'String'
     Add = 'Add'
     Sub = 'Sub'
     Mul = 'Mul'
     Div = 'Div'
-    Push = 'Push'
-    Pop = 'Pop'
+    Echo = 'Echo'
 
     def __init__(self, kind, literal):
         self.kind = kind
@@ -36,10 +36,23 @@ class Lexer:
                     return
                 case ',':
                     self.tokens.append(Token(Token.Comma, ','))
+                case '"':
+                    buffer = ''
+                    
+                    self.advance()
+                    while self.get_char() != '"':
+                        buffer += self.get_char()
+                        self.advance()
+
+                    self.tokens.append(Token(Token.String, buffer))
                 case _:
                     buffer = ''
                     while self.pos < len(self.line) and self.get_char() != ',' and self.get_char() != ' ':
                         buffer += self.get_char()
+
+                        if self.pos < len(self.line) - 1 and self.get_next_char() == ',':
+                            break
+
                         self.advance()
 
                     match buffer:
@@ -51,10 +64,8 @@ class Lexer:
                             self.tokens.append(Token(Token.Mul, 'mul'))
                         case 'div':
                             self.tokens.append(Token(Token.Div, 'div'))
-                        case 'push':
-                            self.tokens.append(Token(Token.Push, 'push'))
-                        case 'pop':
-                            self.tokens.append(Token(Token.Pop, 'pop'))
+                        case 'echo':
+                            self.tokens.append(Token(Token.Echo, 'echo'))
                         case _:
                             is_num = True
                             for char in buffer:
@@ -62,15 +73,18 @@ class Lexer:
                                     is_num = False
                                     break
                             
-                            if is_num:
+                            if is_num and buffer != '':
                                 self.tokens.append(Token(Token.Num, buffer))
-                            else:
+                            elif buffer != '':
                                 self.tokens.append(Token(Token.Iden, buffer))
 
             self.advance()
 
     def get_char(self):
         return self.line[self.pos]
+
+    def get_next_char(self):
+        return self.line[self.pos + 1]
 
     def advance(self):
         self.pos += 1
@@ -85,22 +99,31 @@ class Parser:
             return
         
         match self.tokens[0].kind:
-            case Token.Push:
-                if len(self.tokens) != 2:
-                    die('\'{}\' requires 1 parameter : line {}'.format(self.tokens[0].literal, self.line_num))
-                
+            case Token.Add | Token.Sub | Token.Mul | Token.Div:
+                if len(self.tokens) != 4:
+                    die('\'{}\' requires 2 parameters : line {}'.format(self.tokens[0].literal, self.line_num))
+
                 if self.tokens[1].kind != Token.Num:
                     die('\'{}\' excpected number : line {}'.format(self.tokens[1].literal, self.line_num))
+                
+                if self.tokens[3].kind != Token.Num:
+                    die('\'{}\' excpected number : line {}'.format(self.tokens[3].literal, self.line_num))
 
-            case Token.Add | Token.Sub | Token.Mul | Token.Div | Token.Pop:
-                if len(self.tokens) != 1:
-                    die('\'{}\' does not require any parameters : line {}'.format(self.tokens[0].literal, self.line_num))
-                    
+                if self.tokens[2].kind != Token.Comma:
+                    die('\'{}\' excpected comma : line {}'.format(self.tokens[2].literal, self.line_num))
+            case Token.Echo:
+                i = 1
+                while i < len(self.tokens):
+                    if self.tokens[i].kind == Token.Num or self.tokens[i].kind == Token.String:
+                        if i < len(self.tokens) - 1 and self.tokens[i + 1].kind != Token.Comma:
+                            die('\'{}\' excpected comma : line {}'.format(self.tokens[i + 1].literal, self.line_num))
+
+                    i += 1
+
         self.line_num += 1
 
 class Stores:
     def __init__(self):
-        self.lpl_list = []
         self.lpl_result = 0.0
 
 class Interpreter:
@@ -114,19 +137,19 @@ class Interpreter:
         
         match self.tokens[0].kind:
             case Token.Add:
-                for element in self.stores.lpl_list:
-                    self.stores.lpl_result += float(element)
+                self.stores.lpl_result = float(self.tokens[1].literal) + float(self.tokens[3].literal)        
             case Token.Sub:
-                for element in self.stores.lpl_list:
-                    self.stores.lpl_result -= float(element)
+                self.stores.lpl_result = float(self.tokens[1].literal) - float(self.tokens[3].literal)
             case Token.Mul:
-                for element in self.stores.lpl_list:
-                    self.stores.lpl_result *= float(element)
+                self.stores.lpl_result = float(self.tokens[1].literal) * float(self.tokens[3].literal)
             case Token.Div:
-                for element in self.stores.lpl_list:
-                    self.stores.lpl_result /= float(element)
-            case Token.Push:
-                self.stores.lpl_list.append(float(self.tokens[1].literal))
+                self.stores.lpl_result = float(self.tokens[1].literal) / float(self.tokens[3].literal)
+            case Token.Echo:
+                for element in self.tokens:
+                    if element.kind == Token.Num or element.kind == Token.String:
+                        print(element.literal, end='')
+
+                print('')
 
         print(self.stores.lpl_result)
 
@@ -142,11 +165,13 @@ if __name__ == '__main__':
         lexer = Lexer(line)
         lexer.lex()
 
+        for token in lexer.tokens:
+            print(token.kind, token.literal)
+
         parser = Parser(lexer.tokens)
         parser.parse()
 
         interpreter = Interpreter(parser.tokens, stores)
         interpreter.interpret()
 
-        #for token in parser.tokens:
-        #    print(token.kind, token.literal)
+        

@@ -1,3 +1,5 @@
-push 8
-push 4
-sub
+add 2, 2
+sub 4, 2
+mul 16, 16
+div 16, 2
+echo "Hello World!"
