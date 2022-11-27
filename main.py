@@ -142,7 +142,9 @@ class Stores:
         self.lpl_store_d = Token('', '')
         self.lpl_store_e = Token('', '')
         self.lpl_store_f = Token('', '')
-        self.lpl_global_constant_dict = {}
+        # Global Constants
+        self.lpl_global_constants_dict = {}
+        # Procedures
         self.lpl_global_procedures_dict = {}
         self.lpl_global_procedures = [[[]]]
         self.in_procedure = False
@@ -152,19 +154,13 @@ class Stores:
         if term in self.lpl_global_procedures_dict:
             return self.lpl_global_procedures[self.lpl_global_procedures_dict[term]]
         else:
-            return None
-
-    def add_procedures_dict(self, name, index):
-        self.lpl_global_procedures_dict[name] = index
+            return None        
 
     def search_constants_dict(self, term):
-        if term in self.lpl_global_constant_dict:
-            return self.lpl_global_constant_dict[term]
+        if term in self.lpl_global_constants_dict:
+            return self.lpl_global_constants_dict[term]
         else:
-            return None
-
-    def add_constants_dict(self, name, token):
-        self.lpl_global_constant_dict[name] = token
+            return None        
 
 class Parser:
     def __init__(self, tokens, stores):
@@ -220,6 +216,9 @@ class Parser:
                 if len(self.tokens) != 3:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
                 
+                if self.stores.in_procedure:
+                    die(f'\'{self.tokens[0].literal}\' can not be in procedures : line {self.line_num}')
+
                 if self.tokens[1].kind != Token.Iden:
                     die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
 
@@ -231,8 +230,8 @@ class Parser:
                         die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
                     else:
                         self.tokens[2] = self.stores.search_constants_dict(self.tokens[2].literal)
-                    
-                self.stores.add_constants_dict(self.tokens[1].literal, self.tokens[2])
+                
+                self.stores.lpl_global_constants_dict[self.tokens[1].literal] = self.tokens[2]
             case Token.Procedure:
                 if self.stores.in_procedure:
                     die(f'\'{self.tokens[0].literal}\' can not be nested : line {self.line_num}')
@@ -307,7 +306,7 @@ class Parser:
                             if self.stores.search_constants_dict(self.tokens[i].literal) != None:
                                 self.tokens[i] = self.stores.search_constants_dict(self.tokens[i].literal)
                             else:
-                                die(f'\'{self.tokens[i].literal}\' expected number/string/store/constant : line {self.line_num}')
+                                die(f'\'{self.tokens[i].literal}\' undefined constant : line {self.line_num}')
 
                     i += 1
             case _:
@@ -377,7 +376,7 @@ class Interpreter:
                         case Token.StoreF:
                             self.stores.lpl_store_f = self.tokens[3]
                 case Token.Procedure:
-                    self.stores.add_procedures_dict(self.tokens[1].literal, self.stores.procedure_index)
+                    self.stores.lpl_global_procedures_dict[self.tokens[1].literal] = self.stores.procedure_index
                     self.stores.in_procedure = True
                 case Token.End:
                     self.stores.procedure_index += 1

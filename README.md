@@ -6,7 +6,7 @@ It is a bit like a high level assembly or something else.<br>
 These are all the keywords.
 ```
 run - Run another lpl script
-copy - copy a value to a store
+assign - assign a value to a store
 constant - A constant for storing randomness
 add - add 2 numbers
 sub - subtract 2 numbers

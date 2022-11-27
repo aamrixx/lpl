@@ -2,10 +2,12 @@
 
 assign [store_a], 123
 
+constant x 123
+
 procedure main
     add 2, 2
-    echo "Hello World", "test", [store_a]
+    echo "Hello World", x
 end
 
 run main
-echo "Total : ", [result]
+echo "Total : ", x
