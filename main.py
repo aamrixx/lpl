@@ -17,7 +17,7 @@ class Token:
     String = 'String'
     # Keywords
     Run = 'Run'
-    Copy = 'Copy'
+    Assign = 'Assign'
     Constant = 'Constant'
     Procedure = 'Procedure'
     End = 'End'
@@ -78,14 +78,14 @@ class Lexer:
                     match buffer:
                         case 'run':
                             self.tokens.append(Token(Token.Run, 'run'))
-                        case 'copy':
-                            self.tokens.append(Token(Token.Copy, 'copy'))
+                        case 'assign':
+                            self.tokens.append(Token(Token.Assign, 'assign'))
                         case 'constant':
                             self.tokens.append(Token(Token.Constant, 'constant'))
                         case 'procedure':
-                            self.tokens.appned(Token(Token.Procedure, 'procedure'))
+                            self.tokens.append(Token(Token.Procedure, 'procedure'))
                         case 'end':
-                            self.tokens.appned(Token(Token.End, 'end'))
+                            self.tokens.append(Token(Token.End, 'end'))
                         case 'add':
                             self.tokens.append(Token(Token.Add, 'add'))
                         case 'sub':
@@ -142,16 +142,29 @@ class Stores:
         self.lpl_store_d = Token('', '')
         self.lpl_store_e = Token('', '')
         self.lpl_store_f = Token('', '')
-        self.lpl_global_dict = {}
+        self.lpl_global_constant_dict = {}
+        self.lpl_global_procedures_dict = {}
+        self.lpl_global_procedures = [[[]]]
+        self.in_procedure = False
+        self.procedure_index = 0
 
-    def search_dict(self, term):
-        if term in self.lpl_global_dict:
-            return self.lpl_global_dict[term]
+    def search_procedures_dict(self, term):
+        if term in self.lpl_global_procedures_dict:
+            return self.lpl_global_procedures[self.lpl_global_procedures_dict[term]]
         else:
             return None
 
-    def add_dict(self, name, token):
-        self.lpl_global_dict[name] = token
+    def add_procedures_dict(self, name, index):
+        self.lpl_global_procedures_dict[name] = index
+
+    def search_constants_dict(self, term):
+        if term in self.lpl_global_constant_dict:
+            return self.lpl_global_constant_dict[term]
+        else:
+            return None
+
+    def add_constants_dict(self, name, token):
+        self.lpl_global_constant_dict[name] = token
 
 class Parser:
     def __init__(self, tokens, stores):
@@ -161,6 +174,7 @@ class Parser:
 
     def parse(self):
         if len(self.tokens) == 0:
+            self.line_num += 1
             return
         
         match self.tokens[0].kind:
@@ -168,15 +182,15 @@ class Parser:
                 if len(self.tokens) != 2:
                     die(f'\'{self.tokens[0].literal}\' requires 1 parameters : line {self.line_num}')
                 
-                if self.tokens[1].kind != Token.String:
-                    die(f'\'{self.tokens[1].literal}\' expected a filename/string : line {self.line_num}')
+                if self.tokens[1].kind != Token.Iden:
+                    die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
 
-                for root, dir, files in os.walk('.'):
-                    if self.tokens[1].literal in files:
-                        return
-                
-                die(f'\'{self.tokens[1].literal}\' could not be found : line {self.line_num}')
-            case Token.Copy:
+                if self.stores.search_constants_dict(self.tokens[1].literal) != None:
+                    die(f'\'{self.tokens[1].literal}\' can only be used on procedures: line {self.line_num}')
+
+                if self.stores.search_procedures_dict(self.tokens[1].literal) == None:
+                    die(f'\'{self.tokens[1].literal}\' undefined procedure : line {self.line_num}')
+            case Token.Assign:
                 if len(self.tokens) != 4:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
 
@@ -198,10 +212,10 @@ class Parser:
                 if self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
                 elif self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_dict(self.tokens[3].literal) == None:
+                    if self.stores.search_constants_dict(self.tokens[3].literal) == None:
                         die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
                     else:
-                        self.tokens[3] = self.stores.search_dict(self.tokens[3].literal)
+                        self.tokens[3] = self.stores.search_constants_dict(self.tokens[3].literal)
             case Token.Constant:
                 if len(self.tokens) != 3:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
@@ -209,31 +223,48 @@ class Parser:
                 if self.tokens[1].kind != Token.Iden:
                     die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
 
-                if self.stores.search_dict(self.tokens[1].literal) != None:
+                if self.stores.search_constants_dict(self.tokens[1].literal) != None:
                     die(f'\'{self.tokens[1].literal}\' redefined constant : line {self.line_num}')
 
                 if self.tokens[2].kind == Token.Iden:
-                    if self.stores.search_dict(self.tokens[2].literal) == None:
+                    if self.stores.search_constants_dict(self.tokens[2].literal) == None:
                         die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
                     else:
-                        self.tokens[2] = self.stores.search_dict(self.tokens[2].literal)
+                        self.tokens[2] = self.stores.search_constants_dict(self.tokens[2].literal)
                     
-                self.stores.add_dict(self.tokens[1].literal, self.tokens[2])
-                print(self.stores.lpl_global_dict)
+                self.stores.add_constants_dict(self.tokens[1].literal, self.tokens[2])
+            case Token.Procedure:
+                if self.stores.in_procedure:
+                    die(f'\'{self.tokens[0].literal}\' can not be nested : line {self.line_num}')
+                
+                if len(self.tokens) != 2:
+                    die(f'\'{self.tokens[0].literal}\' requires 1 parameter : line {self.line_num}')
+
+                if self.tokens[1].kind != Token.Iden:
+                    die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
+                
+                if self.stores.search_constants_dict(self.tokens[1].literal) != None:
+                    die(f'\'{self.tokens[1].literal}\' redefined as procedure : line {self.line_num}')
+
+                if self.stores.search_procedures_dict(self.tokens[1].literal) != None:
+                    die(f'\'{self.tokens[1].literal}\' redefined procedure : line {self.line_num}')
+            case Token.End:
+                if len(self.tokens) != 1:
+                    die(f'\'{self.tokens[0].literal}\' requires no parameters : line {self.line_num}')
+
+                self.stores.in_procedure = False
             case Token.Add | Token.Sub | Token.Mul | Token.Div:
                 if len(self.tokens) != 4:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
                 
-                print(self.tokens[3].kind)
-
                 if self.tokens[1].kind != Token.Num and \
                    self.tokens[1].kind != Token.Iden and not \
-                   self.is_store(self.tokens[1].literal):
+                   self.is_store(self.tokens[1].kind):
                     die(f'\'{self.tokens[1].literal}\' expected number/store/constant : line {self.line_num}')
 
                 if self.tokens[3].kind != Token.Num and \
                    self.tokens[3].kind != Token.Iden and not \
-                   self.is_store(self.tokens[3].literal):
+                   self.is_store(self.tokens[3].kind):
                     die(f'\'{self.tokens[3].literal}\' expected number/store/constant : line {self.line_num}')
 
                 if self.tokens[2].kind != Token.Comma:
@@ -242,21 +273,21 @@ class Parser:
                 if self.is_store(self.tokens[1].kind):
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
                     if self.tokens[1] == Token('', ''):
-                                die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
+                        die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
                 elif self.is_store(self.tokens[3].kind):
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
-                    if self.tokens[2] == Token('', ''):
-                                die(f'\'{self.tokens[2].literal}\' not a store or result store is immutable : line {self.line_num}')
+                    if self.tokens[3] == Token('', ''):
+                        die(f'\'{self.tokens[3].literal}\' not a store or result store is immutable : line {self.line_num}')
                 elif self.tokens[1].kind == Token.Iden:
-                    if self.stores.search_dict(self.tokens[1].literal) == None:
+                    if self.stores.search_constants_dict(self.tokens[1].literal) == None:
                         die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
                     else:
-                        self.tokens[1] = self.stores.search_dict(self.tokens[1].literal)
+                        self.tokens[1] = self.stores.search_constants_dict(self.tokens[1].literal)
                 elif self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_dict(self.tokens[3].literal) == None:
+                    if self.stores.search_constants_dict(self.tokens[3].literal) == None:
                         die(f'\'{self.tokens[3].literal}\' undefined constant : line {self.line_num}')
                     else:
-                        self.tokens[3] = self.stores.search_dict(self.tokens[3].literal)
+                        self.tokens[3] = self.stores.search_constants_dict(self.tokens[3].literal)
             case Token.Echo:
                 if self.tokens[len(self.tokens) - 1].kind == Token.Comma:
                     die(f'\'{self.tokens[2].literal}\' expected number/string/store/constant : line {self.line_num}')
@@ -273,8 +304,8 @@ class Parser:
                             if self.tokens[i] == Token('', ''):
                                 die(f'\'{self.tokens[i].literal}\' not a store or result store is immutable : line {self.line_num}')
                         else:
-                            if self.stores.search_dict(self.tokens[i].literal) != None:
-                                self.tokens[i] = self.stores.search_dict(self.tokens[i].literal)
+                            if self.stores.search_constants_dict(self.tokens[i].literal) != None:
+                                self.tokens[i] = self.stores.search_constants_dict(self.tokens[i].literal)
                             else:
                                 die(f'\'{self.tokens[i].literal}\' expected number/string/store/constant : line {self.line_num}')
 
@@ -318,45 +349,51 @@ class Interpreter:
     def interpret(self):
         if len(self.tokens) == 0:
             return
-        
-        match self.tokens[0].kind:
-            case Token.Run:
-                for line in open(self.tokens[1].literal).readlines():
-                    lexer = Lexer(line)
-                    lexer.lex()
 
-                    parser = Parser(lexer.tokens, stores)
-                    parser.parse()
+        if self.stores.in_procedure:
+            self.stores.lpl_global_procedures[self.stores.procedure_index].append(self.tokens)
+        else:
+            match self.tokens[0].kind:
+                case Token.Run:
+                    lines = self.stores.search_procedures_dict(self.tokens[1].literal)
 
-                    interpreter = Interpreter(parser.tokens, stores)
-                    interpreter.interpret()
-            case Token.Copy:
-                match self.tokens[1].kind:
-                    case Token.StoreA:
-                        self.stores.lpl_store_a = self.tokens[3]
-                    case Token.StoreB:
-                        self.stores.lpl_store_b = self.tokens[3]
-                    case Token.StoreC:
-                        self.stores.lpl_store_c = self.tokens[3]
-                    case Token.StoreD:
-                        self.stores.lpl_store_e = self.tokens[3]
-                    case Token.StoreE:
-                        self.stores.lpl_store_d = self.tokens[3]
-                    case Token.StoreF:
-                        self.stores.lpl_store_f = self.tokens[3]
-            case Token.Add:
-                self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
-            case Token.Sub:
-                self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
-            case Token.Mul:
-                self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
-            case Token.Div:
-                self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
-            case Token.Echo:
-                for element in self.tokens:
-                    if element.kind == Token.Num or element.kind == Token.String:
-                        print(element.literal, end='')
-                print('')
+                    for line in lines:   
+                        #for token in line:
+                        #   print(token.kind, token.literal)                     
+                        interpreter = Interpreter(line, stores)
+                        interpreter.interpret()
+                case Token.Assign:
+                    match self.tokens[1].kind:
+                        case Token.StoreA:
+                            self.stores.lpl_store_a = self.tokens[3]
+                        case Token.StoreB:
+                            self.stores.lpl_store_b = self.tokens[3]
+                        case Token.StoreC:
+                            self.stores.lpl_store_c = self.tokens[3]
+                        case Token.StoreD:
+                            self.stores.lpl_store_e = self.tokens[3]
+                        case Token.StoreE:
+                            self.stores.lpl_store_d = self.tokens[3]
+                        case Token.StoreF:
+                            self.stores.lpl_store_f = self.tokens[3]
+                case Token.Procedure:
+                    self.stores.add_procedures_dict(self.tokens[1].literal, self.stores.procedure_index)
+                    self.stores.in_procedure = True
+                case Token.End:
+                    self.stores.procedure_index += 1
+                case Token.Add:
+                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
+                case Token.Sub:
+                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
+                case Token.Mul:
+                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
+                case Token.Div:
+                    self.stores.lpl_result = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
+                case Token.Echo:
+                    for element in self.tokens:
+                        if element.kind == Token.Num or element.kind == Token.String:
+                            print(element.literal, end='')
+                    print('')
 
 if __name__ == '__main__':
     args = sys.argv
@@ -378,18 +415,20 @@ if __name__ == '__main__':
     else:
         file = open(args[1])
 
+    # Classes for Parser and Procedures/Constants/Stores
     stores = Stores()
+    parser = Parser([], stores)
 
     for line in file.readlines():
         lexer = Lexer(line)
         lexer.lex()
 
-        parser = Parser(lexer.tokens, stores)
-        parser.parse()
-
         if print_tokens:
-            for token in parser.tokens:
+            for token in lexer.tokens:
                 print(token.kind, token.literal)
+
+        parser.tokens = lexer.tokens
+        parser.parse()
 
         interpreter = Interpreter(parser.tokens, stores)
         interpreter.interpret()
