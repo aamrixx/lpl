@@ -85,6 +85,18 @@ class Lexer:
                             self.tokens.append(Token(Token.Echo, 'echo'))
                         case '[result]':
                             self.tokens.append(Token(Token.ResultStore, '[result]'))
+                        case '[store_a]':
+                            self.tokens.append(Token(Token.StoreA, '[store_a]'))
+                        case '[store_b]':
+                            self.tokens.append(Token(Token.StoreB, '[store_b]'))
+                        case '[store_c]':
+                            self.tokens.append(Token(Token.StoreC, '[store_c]'))
+                        case '[store_d]':
+                            self.tokens.append(Token(Token.StoreD, '[store_d]'))
+                        case '[store_e]':
+                            self.tokens.append(Token(Token.StoreE, '[store_e]'))
+                        case '[store_f]':
+                            self.tokens.append(Token(Token.StoreF, '[store_f]'))   
                         case _:
                             is_num = True
                             for char in buffer:
@@ -129,7 +141,25 @@ class Parser:
             return
         
         match self.tokens[0].kind:
-            case Token.Add | Token.Sub | Token.Mul | Token.Div | Token.Assign:
+            case Token.Assign:
+                if len(self.tokens) != 4:
+                    die('\'{}\' requires 2 parameters : line {}'.format(self.tokens[0].literal, self.line_num))
+
+                if not self.is_store(self.tokens[1].kind):
+                    die('\'{}\' expected store : line {}'.format(self.tokens[1].literal, self.line_num))
+                
+                if self.tokens[3].kind != Token.Num and not self.is_store(self.tokens[3].kind):
+                    die('\'{}\' expected number/store : line {}'.format(self.tokens[3].literal, self.line_num))
+
+                if self.tokens[2].kind != Token.Comma:
+                    die('\'{}\' expected comma : line {}'.format(self.tokens[2].literal, self.line_num))
+
+                if not self.is_store(self.tokens[1].kind) or self.tokens[1].kind == Token.ResultStore:
+                    die('\'{}\' not a store or result store is immutable : line {}'.format(self.tokens[1].literal, self.line_num))
+                
+                if self.is_store(self.tokens[3].kind):
+                    self.tokens[3] = self.get_store_data(self.tokens[3].kind)
+            case Token.Add | Token.Sub | Token.Mul | Token.Div:
                 if len(self.tokens) != 4:
                     die('\'{}\' requires 2 parameters : line {}'.format(self.tokens[0].literal, self.line_num))
 
@@ -142,7 +172,7 @@ class Parser:
                 if self.tokens[2].kind != Token.Comma:
                     die('\'{}\' expected comma : line {}'.format(self.tokens[2].literal, self.line_num))
 
-                if self.is_store(self.tokens[1].kind) and self.tokens[0].kind != Token.Assign:
+                if self.is_store(self.tokens[1].kind):
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
                 
                 if self.is_store(self.tokens[3].kind):
@@ -166,7 +196,7 @@ class Parser:
 
     def is_store(self, kind):
         match kind:
-            case Token.ResultStore | Token.StoreA | Token.StoreB | Token.StoreC | Token.StoreD | Token.StoreE| Token.StoreF:
+            case Token.ResultStore | Token.StoreA | Token.StoreB | Token.StoreC | Token.StoreD | Token.StoreE | Token.StoreF:
                 return True
             case _:
                 return False
