@@ -2,7 +2,7 @@ import sys
 import os
 
 def usage():
-    print('usage : [python] [--print_tokens] [file')
+    print('usage : [python] [file]')
 
 def die(reason):
     print('\x1b[1;31merror\x1b[0m :', reason, file=sys.stderr)
@@ -15,17 +15,21 @@ class Token:
     Num = 'Num'
     Iden = 'Iden'
     String = 'String'
+    # Symbols
+    Add = 'Add'
+    Sub = 'Sub'
+    Mul = 'Mul'
+    Div = 'Div'
+    LT = 'LT'
+    GT = 'GT'
     # Keywords
     Run = 'Run'
     Import = 'Import'
     Constant = 'Constant'
     Variable = 'Variable'
     Procedure = 'Procedure'
+    If = 'If'
     End = 'End'
-    Add = 'Add'
-    Sub = 'Sub'
-    Mul = 'Mul'
-    Div = 'Div'
     Echo = 'Echo'
     Read = 'Read'
     # Store
@@ -58,6 +62,10 @@ class Lexer:
                     self.tokens.append(Token(Token.Mul, '*'))
                 case '/':
                     self.tokens.append(Token(Token.Div, '/'))
+                case '>':
+                    self.tokens.append(Token(Token.GT, '>'))
+                case '<':
+                    self.tokens.append(Token(Token.LT, '<'))
                 case ',':
                     self.tokens.append(Token(Token.Comma, ','))
                 case '^':
@@ -92,6 +100,8 @@ class Lexer:
                             self.tokens.append(Token(Token.Variable, 'var'))
                         case 'proc':
                             self.tokens.append(Token(Token.Procedure, 'proc'))
+                        case 'if':
+                            self.tokens.append(Token(Token.If, 'if'))
                         case 'end':
                             self.tokens.append(Token(Token.End, 'end'))
                         case 'echo':
@@ -136,6 +146,9 @@ class Stores:
         self.lpl_global_procedures = [[[]]]
         self.in_procedure = False
         self.procedure_index = 0
+        # If
+        self.if_skip = False
+        self.in_if = False
 
     def search_procedures_dict(self, term):
         if term in self.lpl_global_procedures_dict:
@@ -179,6 +192,9 @@ class Parser:
 
                 if self.tokens[1].kind != Token.String:
                     die(f'\'{self.tokens[1].literal}\' expected string : line {self.line_num}')
+
+                if self.tokens[1].literal[-4:] != '.bth':
+                    die(f'\'{self.tokens[1].literal}\' not a Bismuth file : line {self.line_num}')
 
                 for _, _, files in os.walk('.'):
                     if self.tokens[1].literal in files:
@@ -240,11 +256,26 @@ class Parser:
 
                 if self.stores.search_procedures_dict(self.tokens[1].literal) != None:
                     die(f'\'{self.tokens[1].literal}\' redefined procedure : line {self.line_num}')
+            case Token.If:
+                if len(self.tokens) != 4:
+                    die(f'\'{self.tokens[0].literal}\' requires 3 parameter : line {self.line_num}')
+
+                if self.tokens[1].kind != Token.GT and self.tokens[1].kind != Token.LT:
+                    die(f'\'{self.tokens[1].literal}\' invalid operand : line {self.line_num}')
+
+                if self.tokens[2].kind != Token.Num or self.tokens[3].kind != Token.Num:
+                    die(f'\'{self.tokens[1].literal}\' expected number : line {self.line_num}')
+
+                self.stores.in_if = True
             case Token.End:
                 if len(self.tokens) != 1:
                     die(f'\'{self.tokens[0].literal}\' requires no parameters : line {self.line_num}')
 
-                self.stores.in_procedure = False
+                if self.stores.in_if:
+                    self.stores.in_if = False
+                    self.stores.if_skip = False
+                else:
+                    self.stores.in_procedure = False
             case Token.Add | Token.Sub | Token.Mul | Token.Div:
                 if len(self.tokens) != 3:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
@@ -335,6 +366,8 @@ class Interpreter:
 
         if self.stores.in_procedure:
             self.stores.lpl_global_procedures[self.stores.procedure_index].append(self.tokens)
+        elif self.stores.if_skip:
+            return
         else:
             match self.tokens[0].kind:
                 case Token.Run:
@@ -357,6 +390,14 @@ class Interpreter:
                 case Token.Procedure:
                     self.stores.lpl_global_procedures_dict[self.tokens[1].literal] = self.stores.procedure_index
                     self.stores.in_procedure = True
+                case Token.If:
+                    match self.tokens[1].kind:
+                        case Token.LT:
+                            if not (float(self.tokens[2].literal) < float(self.tokens[3].literal)):
+                                self.stores.if_skip = True
+                        case Token.GT:
+                            if not (float(self.tokens[2].literal) > float(self.tokens[3].literal)):
+                                self.stores.if_skip = True
                 case Token.End:
                     self.stores.procedure_index += 1
                 case Token.Add:
@@ -388,23 +429,15 @@ class Interpreter:
 
 if __name__ == '__main__':
     args = sys.argv
-    print_tokens = False
 
-    if len(args) != 2 and len(args) != 3:
+    if len(args) != 2:
         usage()
         die('invalid arguments')
 
-    file = None
+    if args[1][-4:] != '.bth':
+        die(f'\'{args[1]}\' not a Bismuth file')
 
-    if len(args) == 3:
-        if args[1] != '--print_tokens':
-            usage()
-            die('invalid arguments')
-        else:
-            print_tokens = True
-            file = open(args[2])
-    else:
-        file = open(args[1])
+    file = open(args[1])
 
     # Classes for Parser and Procedures/Constants/Stores
     stores = Stores()
@@ -417,9 +450,8 @@ if __name__ == '__main__':
         parser.tokens = lexer.tokens
         parser.parse()
 
-        if print_tokens:
-            for token in parser.tokens:
-                print(token.kind, token.literal)
+        for token in parser.tokens:
+            print(token.kind, token.literal)
 
         interpreter = Interpreter(parser.tokens, stores)
         interpreter.interpret()
