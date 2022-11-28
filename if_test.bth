@@ -1,7 +1,11 @@
 # Test if statements
 
+var x = 123
+const p = 123
+p 123
+
 # Equality
-if = 2 2
+if = 2 x
     echo "2 and 2 is equal"
 end
 
@@ -23,6 +27,6 @@ if < 2 3
     echo "2 is less than 3"
 end
 
-if = 2 3
+if < 3 1
     echo "3 is less than 2"
 end
