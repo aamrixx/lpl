@@ -1,7 +1,12 @@
 # The LPL Test file for debugging
 
-import "other.lpl"
+#const x 123
+#var y 1
 
-run hello_world
-read "What is your name : "
-echo [a]
+proc main
+    + 2, 2
+    - ^, 2
+end
+
+run main
+echo ^

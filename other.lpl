@@ -1,3 +1,4 @@
-procedure hello_world
-    echo "Hello World"
+proc hello_world
+    assign [r], 123
+    echo "[a]"
 end

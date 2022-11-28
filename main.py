@@ -18,8 +18,8 @@ class Token:
     # Keywords
     Run = 'Run'
     Import = 'Import'
-    Assign = 'Assign'
     Constant = 'Constant'
+    Variable = 'Variable'
     Procedure = 'Procedure'
     End = 'End'
     Add = 'Add'
@@ -28,13 +28,8 @@ class Token:
     Div = 'Div'
     Echo = 'Echo'
     Read = 'Read'
-    # Stores
-    StoreA = 'StoreA'
-    StoreB = 'StoreB'
-    StoreC = 'StoreC'
-    StoreD = 'StoreD'
-    StoreE = 'StoreE'
-    StoreF = 'StoreF'
+    # Store
+    StoreR = 'StoreR'
 
     def __init__(self, kind, literal):
         self.kind = kind
@@ -55,8 +50,18 @@ class Lexer:
             match self.get_char():
                 case '#':
                     return
+                case '+':
+                    self.tokens.append(Token(Token.Add, '+'))
+                case '-':
+                    self.tokens.append(Token(Token.Sub, '-'))
+                case '*':
+                    self.tokens.append(Token(Token.Mul, '*'))
+                case '/':
+                    self.tokens.append(Token(Token.Div, '/'))
                 case ',':
                     self.tokens.append(Token(Token.Comma, ','))
+                case '^':
+                    self.tokens.append(Token(Token.StoreR, '^'))
                 case '"':
                     buffer = ''
                     
@@ -81,38 +86,18 @@ class Lexer:
                             self.tokens.append(Token(Token.Run, 'run'))
                         case 'import':
                             self.tokens.append(Token(Token.Import, 'import'))
-                        case 'assign':
-                            self.tokens.append(Token(Token.Assign, 'assign'))
-                        case 'constant':
-                            self.tokens.append(Token(Token.Constant, 'constant'))
-                        case 'procedure':
-                            self.tokens.append(Token(Token.Procedure, 'procedure'))
+                        case 'const':
+                            self.tokens.append(Token(Token.Constant, 'const'))
+                        case 'var':
+                            self.tokens.append(Token(Token.Variable, 'var'))
+                        case 'proc':
+                            self.tokens.append(Token(Token.Procedure, 'proc'))
                         case 'end':
                             self.tokens.append(Token(Token.End, 'end'))
-                        case 'add':
-                            self.tokens.append(Token(Token.Add, 'add'))
-                        case 'sub':
-                            self.tokens.append(Token(Token.Sub, 'sub'))
-                        case 'mul':
-                            self.tokens.append(Token(Token.Mul, 'mul'))
-                        case 'div':
-                            self.tokens.append(Token(Token.Div, 'div'))
                         case 'echo':
                             self.tokens.append(Token(Token.Echo, 'echo'))
                         case 'read':
                             self.tokens.append(Token(Token.Read, 'read'))
-                        case '[a]':
-                            self.tokens.append(Token(Token.StoreA, '[a]'))
-                        case '[b]':
-                            self.tokens.append(Token(Token.StoreB, '[b]'))
-                        case '[c]':
-                            self.tokens.append(Token(Token.StoreC, '[c]'))
-                        case '[d]':
-                            self.tokens.append(Token(Token.StoreD, '[d]'))
-                        case '[e]':
-                            self.tokens.append(Token(Token.StoreE, '[e]'))
-                        case '[f]':
-                            self.tokens.append(Token(Token.StoreF, '[f]'))   
                         case _:
                             is_num = True
                             for char in buffer:
@@ -136,16 +121,16 @@ class Lexer:
     def advance(self):
         self.pos += 1
 
+class DataType:
+    def __init__(self, token, is_const):
+        self.is_const = is_const
+        self.token = token
+
 class Stores:
     def __init__(self):
-        self.lpl_store_a = Token('', '')
-        self.lpl_store_b = Token('', '')
-        self.lpl_store_c = Token('', '')
-        self.lpl_store_d = Token('', '')
-        self.lpl_store_e = Token('', '')
-        self.lpl_store_f = Token('', '')
+        self.lpl_store_r = Token('', '')
         # Global Constants
-        self.lpl_global_constants_dict = {}
+        self.lpl_global_consts_vars_dict = {}
         # Procedures
         self.lpl_global_procedures_dict = {}
         self.lpl_global_procedures = [[[]]]
@@ -158,9 +143,9 @@ class Stores:
         else:
             return None        
 
-    def search_constants_dict(self, term):
-        if term in self.lpl_global_constants_dict:
-            return self.lpl_global_constants_dict[term]
+    def search_consts_vars_dict(self, term):
+        if term in self.lpl_global_consts_vars_dict:
+            return self.lpl_global_consts_vars_dict[term].token
         else:
             return None        
 
@@ -183,7 +168,7 @@ class Parser:
                 if self.tokens[1].kind != Token.Iden:
                     die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
 
-                if self.stores.search_constants_dict(self.tokens[1].literal) != None:
+                if self.stores.search_consts_vars_dict(self.tokens[1].literal) != None:
                     die(f'\'{self.tokens[1].literal}\' can only be used on procedures: line {self.line_num}')
 
                 if self.stores.search_procedures_dict(self.tokens[1].literal) == None:
@@ -200,32 +185,6 @@ class Parser:
                         return
                 
                 die(f'\'{self.tokens[1].literal}\' could not be found : line {self.line_num}')
-            case Token.Assign:
-                if len(self.tokens) != 4:
-                    die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
-
-                if not self.is_store(self.tokens[1].kind):
-                    die(f'\'{self.tokens[1].literal}\' expected store : line {self.line_num}')
-                
-                if self.tokens[3].kind != Token.Num:
-                    if self.tokens[3].kind != Token.String:
-                        if self.tokens[3].kind != Token.Iden: 
-                            if not self.is_store(self.tokens[3].kind):
-                                die(f'\'{self.tokens[3].literal}\' expected number/store/constant : line {self.line_num}')
-
-                if self.tokens[2].kind != Token.Comma:
-                    die(f'\'{self.tokens[2].literal}\' expected comma : line {self.line_num}')
-
-                if not self.is_store(self.tokens[1].kind):
-                    die(f'\'{self.tokens[1].literal}\' not a store : line {self.line_num}')
-                
-                if self.is_store(self.tokens[3].kind):
-                    self.tokens[3] = self.get_store_data(self.tokens[3].kind)
-                elif self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_constants_dict(self.tokens[3].literal) == None:
-                        die(f'\'{self.tokens[3].literal}\' undefined constant : line {self.line_num}')
-                    else:
-                        self.tokens[3] = self.stores.search_constants_dict(self.tokens[3].literal)
             case Token.Constant:
                 if len(self.tokens) != 3:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
@@ -236,7 +195,7 @@ class Parser:
                 if self.tokens[1].kind != Token.Iden:
                     die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
 
-                if self.stores.search_constants_dict(self.tokens[1].literal) != None:
+                if self.stores.search_consts_vars_dict(self.tokens[1].literal) != None:
                     die(f'\'{self.tokens[1].literal}\' redefined constant : line {self.line_num}')
 
                 if self.tokens[2].kind == Token.Iden:
@@ -245,7 +204,27 @@ class Parser:
                     else:
                         self.tokens[2] = self.stores.search_constants_dict(self.tokens[2].literal)
                 
-                self.stores.lpl_global_constants_dict[self.tokens[1].literal] = self.tokens[2]
+                self.stores.lpl_global_consts_vars_dict[self.tokens[1].literal] = DataType(self.tokens[2], False)
+            case Token.Variable:
+                if len(self.tokens) != 3:
+                    die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
+                
+                if self.stores.in_procedure:
+                    die(f'\'{self.tokens[0].literal}\' can not be in procedures : line {self.line_num}')
+
+                if self.tokens[1].kind != Token.Iden:
+                    die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
+
+                if self.stores.search_consts_vars_dict(self.tokens[1].literal) != None:
+                    die(f'\'{self.tokens[1].literal}\' redefined constant/variable : line {self.line_num}')
+
+                if self.tokens[2].kind == Token.Iden:
+                    if self.stores.search_consts_vars_dict(self.tokens[2].literal) == None:
+                        die(f'\'{self.tokens[1].literal}\' undefined constant/variable : line {self.line_num}')
+                    else:
+                        self.tokens[2] = self.stores.search_consts_vars_dict(self.tokens[2].literal)
+                
+                self.stores.lpl_global_consts_vars_dict[self.tokens[1].literal] = DataType(self.tokens[2], False)
             case Token.Procedure:
                 if self.stores.in_procedure:
                     die(f'\'{self.tokens[0].literal}\' can not be nested : line {self.line_num}')
@@ -256,7 +235,7 @@ class Parser:
                 if self.tokens[1].kind != Token.Iden:
                     die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
                 
-                if self.stores.search_constants_dict(self.tokens[1].literal) != None:
+                if self.stores.search_consts_vars_dict(self.tokens[1].literal) != None:
                     die(f'\'{self.tokens[1].literal}\' redefined as procedure : line {self.line_num}')
 
                 if self.stores.search_procedures_dict(self.tokens[1].literal) != None:
@@ -283,21 +262,21 @@ class Parser:
                 if self.tokens[2].kind != Token.Comma:
                     die(f'\'{self.tokens[2].literal}\' expected comma : line {self.line_num}')
 
-                if self.is_store(self.tokens[1].kind):
+                if self.tokens[1].kind == Token.StoreR:
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
-                    if self.tokens[1] == Token('', ''):
+                    if self.tokens[1] == DataType(Token('', ''), None):
                         die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
-                elif self.is_store(self.tokens[3].kind):
+                elif self.tokens[3].kind == Token.StoreR:
                     self.tokens[3] = self.get_store_data(self.tokens[3].kind)
                     if self.tokens[3] == Token('', ''):
                         die(f'\'{self.tokens[3].literal}\' not a store or result store is immutable : line {self.line_num}')
                 elif self.tokens[1].kind == Token.Iden:
-                    if self.stores.search_constants_dict(self.tokens[1].literal) == None:
+                    if self.stores.search_consts_vars_dict(self.tokens[1].literal) == None:
                         die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
                     else:
                         self.tokens[1] = self.stores.search_constants_dict(self.tokens[1].literal)
                 elif self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_constants_dict(self.tokens[3].literal) == None:
+                    if self.stores.search_consts_vars_dict(self.tokens[3].literal) == None:
                         die(f'\'{self.tokens[3].literal}\' undefined constant : line {self.line_num}')
                     else:
                         self.tokens[3] = self.stores.search_constants_dict(self.tokens[3].literal)
@@ -311,14 +290,14 @@ class Parser:
                         if i < len(self.tokens) - 1 and self.tokens[i + 1].kind != Token.Comma:
                             die(f'\'{self.tokens[i + 1].literal}\' expected comma : line {self.line_num}')
                     else:
-                        if self.is_store(self.tokens[i].kind) or self.tokens[i].kind == Token.Comma:
+                        if self.tokens[i].kind == Token.StoreR or self.tokens[i].kind == Token.Comma:
                             self.tokens[i] = self.get_store_data(self.tokens[i].kind)
                            
                             if self.tokens[i] == Token('', ''):
                                 die(f'\'{self.tokens[i].literal}\' not a store or result store is immutable : line {self.line_num}')
                         else:
-                            if self.stores.search_constants_dict(self.tokens[i].literal) != None:
-                                self.tokens[i] = self.stores.search_constants_dict(self.tokens[i].literal)
+                            if self.stores.search_consts_vars_dict(self.tokens[i].literal) != None:
+                                self.tokens[i] = self.stores.search_consts_vars_dict(self.tokens[i].literal)
                             else:
                                 die(f'\'{self.tokens[i].literal}\' undefined constant : line {self.line_num}')
 
@@ -336,25 +315,15 @@ class Parser:
 
     def is_store(self, kind):
         match kind:
-            case Token.StoreA | Token.StoreB | Token.StoreC | Token.StoreD | Token.StoreE | Token.StoreF:
+            case Token.StoreR:
                 return True
             case _:
                 return False
 
     def get_store_data(self, kind):
         match kind:
-            case Token.StoreA:
-                return self.stores.lpl_store_a
-            case Token.StoreB:
-                return self.stores.lpl_store_b
-            case Token.StoreC:
-                return self.stores.lpl_store_c
-            case Token.StoreD:
-                return self.stores.lpl_store_d
-            case Token.StoreE:
-                return self.stores.lpl_store_e
-            case Token.StoreF:
-                return self.stores.lpl_store_f
+            case Token.StoreR:
+                return self.stores.lpl_store_r
             case _:
                 return Token('', '')
 
@@ -388,33 +357,19 @@ class Interpreter:
 
                         interpreter = Interpreter(parser.tokens, stores)
                         interpreter.interpret()
-                case Token.Assign:
-                    match self.tokens[1].kind:
-                        case Token.StoreA:
-                            self.stores.lpl_store_a = self.tokens[3]
-                        case Token.StoreB:
-                            self.stores.lpl_store_b = self.tokens[3]
-                        case Token.StoreC:
-                            self.stores.lpl_store_c = self.tokens[3]
-                        case Token.StoreD:
-                            self.stores.lpl_store_e = self.tokens[3]
-                        case Token.StoreE:
-                            self.stores.lpl_store_d = self.tokens[3]
-                        case Token.StoreF:
-                            self.stores.lpl_store_f = self.tokens[3]
                 case Token.Procedure:
                     self.stores.lpl_global_procedures_dict[self.tokens[1].literal] = self.stores.procedure_index
                     self.stores.in_procedure = True
                 case Token.End:
                     self.stores.procedure_index += 1
                 case Token.Add:
-                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
                 case Token.Sub:
-                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
                 case Token.Mul:
-                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
                 case Token.Div:
-                    self.stores.lpl_store_a = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
                 case Token.Echo:
                     for element in self.tokens:
                         if element.kind == Token.Num or element.kind == Token.String:
@@ -430,9 +385,9 @@ class Interpreter:
                             break
                             
                     if is_num and stdin != '':
-                        self.stores.lpl_store_a = Token(Token.Num, stdin)
+                        self.stores.lpl_store_r = Token(Token.Num, stdin)
                     elif stdin != '':
-                        self.stores.lpl_store_a = Token(Token.String, stdin)
+                        self.stores.lpl_store_r = Token(Token.String, stdin)
 
 if __name__ == '__main__':
     args = sys.argv
@@ -462,12 +417,12 @@ if __name__ == '__main__':
         lexer = Lexer(line)
         lexer.lex()
 
-        if print_tokens:
-            for token in lexer.tokens:
-                print(token.kind, token.literal)
-
         parser.tokens = lexer.tokens
         parser.parse()
+
+        if print_tokens:
+            for token in parser.tokens:
+                print(token.kind, token.literal)
 
         interpreter = Interpreter(parser.tokens, stores)
         interpreter.interpret()
