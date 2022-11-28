@@ -1,11 +1,11 @@
 # The LPL Test file for debugging
 
 #const x 123
-#var y 1
+var y 1
 
 proc main
-    + 2, 2
-    - ^, 2
+    + 2 2
+    - 4 y
 end
 
 run main

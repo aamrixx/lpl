@@ -246,7 +246,7 @@ class Parser:
 
                 self.stores.in_procedure = False
             case Token.Add | Token.Sub | Token.Mul | Token.Div:
-                if len(self.tokens) != 4:
+                if len(self.tokens) != 3:
                     die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
                 
                 if self.tokens[1].kind != Token.Num and \
@@ -254,32 +254,29 @@ class Parser:
                    self.is_store(self.tokens[1].kind):
                     die(f'\'{self.tokens[1].literal}\' expected number/store/constant : line {self.line_num}')
 
-                if self.tokens[3].kind != Token.Num and \
-                   self.tokens[3].kind != Token.Iden and not \
-                   self.is_store(self.tokens[3].kind):
-                    die(f'\'{self.tokens[3].literal}\' expected number/store/constant : line {self.line_num}')
-
-                if self.tokens[2].kind != Token.Comma:
-                    die(f'\'{self.tokens[2].literal}\' expected comma : line {self.line_num}')
+                if self.tokens[2].kind != Token.Num and \
+                   self.tokens[2].kind != Token.Iden and not \
+                   self.is_store(self.tokens[2].kind):
+                    die(f'\'{self.tokens[2].literal}\' expected number/store/constant : line {self.line_num}')
 
                 if self.tokens[1].kind == Token.StoreR:
                     self.tokens[1] = self.get_store_data(self.tokens[1].kind)
                     if self.tokens[1] == DataType(Token('', ''), None):
                         die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
-                elif self.tokens[3].kind == Token.StoreR:
-                    self.tokens[3] = self.get_store_data(self.tokens[3].kind)
-                    if self.tokens[3] == Token('', ''):
-                        die(f'\'{self.tokens[3].literal}\' not a store or result store is immutable : line {self.line_num}')
+                elif self.tokens[2].kind == Token.StoreR:
+                    self.tokens[2] = self.get_store_data(self.tokens[3].kind)
+                    if self.tokens[2] == Token('', ''):
+                        die(f'\'{self.tokens[2].literal}\' not a store or result store is immutable : line {self.line_num}')
                 elif self.tokens[1].kind == Token.Iden:
                     if self.stores.search_consts_vars_dict(self.tokens[1].literal) == None:
                         die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
                     else:
                         self.tokens[1] = self.stores.search_constants_dict(self.tokens[1].literal)
-                elif self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[3].literal) == None:
-                        die(f'\'{self.tokens[3].literal}\' undefined constant : line {self.line_num}')
+                elif self.tokens[2].kind == Token.Iden:
+                    if self.stores.search_consts_vars_dict(self.tokens[2].literal) == None:
+                        die(f'\'{self.tokens[2].literal}\' undefined constant : line {self.line_num}')
                     else:
-                        self.tokens[3] = self.stores.search_constants_dict(self.tokens[3].literal)
+                        self.tokens[2] = self.stores.search_consts_vars_dict(self.tokens[2].literal)
             case Token.Echo:
                 if self.tokens[len(self.tokens) - 1].kind == Token.Comma:
                     die(f'\'{self.tokens[2].literal}\' expected number/string/store/constant : line {self.line_num}')
@@ -363,13 +360,13 @@ class Interpreter:
                 case Token.End:
                     self.stores.procedure_index += 1
                 case Token.Add:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[2].literal)))
                 case Token.Sub:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[2].literal)))
                 case Token.Mul:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[2].literal)))
                 case Token.Div:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[3].literal)))
+                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[2].literal)))
                 case Token.Echo:
                     for element in self.tokens:
                         if element.kind == Token.Num or element.kind == Token.String:
