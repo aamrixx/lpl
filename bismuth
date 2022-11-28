@@ -61,7 +61,19 @@ class Lexer:
                 case '+':
                     self.tokens.append(Token(Token.Add, '+'))
                 case '-':
-                    self.tokens.append(Token(Token.Sub, '-'))
+                    if self.get_next_char() != ' ':
+                        buffer = ''
+                        while self.pos < len(self.line) and self.get_char() != ',' and self.get_char() != ' ':
+                            buffer += self.get_char()
+
+                            if self.pos < len(self.line) - 1 and self.get_next_char() == ',':
+                                break
+
+                            self.advance()
+                        
+                        self.tokens.append(Token(Token.Num, buffer))
+                    else:
+                        self.tokens.append(Token(Token.Sub, '-'))
                 case '*':
                     self.tokens.append(Token(Token.Mul, '*'))
                 case '/':
@@ -115,10 +127,10 @@ class Lexer:
                         case 'read':
                             self.tokens.append(Token(Token.Read, 'read'))
                         case _:
-                            if not (len(self.tokens) - 1 <= 0) and \
-                               self.tokens[len(self.tokens) - 1].kind == Token.Sub:
-                                buffer = '-' + buffer
-                                self.tokens.pop()
+                            #if not (len(self.tokens) - 1 <= 0) and \
+                            #   self.tokens[len(self.tokens) - 1].kind == Token.Sub:
+                            #    buffer = '-' + buffer
+                            #    self.tokens.pop()
 
                             is_num = True
                             for char in buffer:
@@ -179,6 +191,53 @@ class Parser:
         self.line_num = 1
         self.stores = stores
 
+    def parse_math(self, start):
+        if len(self.tokens) - start == 1:
+            if self.tokens[start].kind == Token.Num:
+                return Token(Token.Num, self.tokens[start].literal)
+            elif self.tokens[start].kind == Token.Iden:
+                if self.stores.search_consts_vars_dict(self.tokens[start].literal) != None:
+                    self.tokens[start] = \
+                        self.stores.search_consts_vars_dict(self.tokens[start].literal).token
+                else:
+                    die(f'\'{self.tokens[start].literal}\' undefined constant/variable : line {self.line_num}')
+
+            return Token(Token.Num, self.tokens[start].literal)
+
+        if len(self.tokens) - start < 3:
+            die(f'maths expresssion requires atleast 3 parameters : line {self.line_num}')
+
+        i = 0
+        while i < len(self.tokens) - start:
+            if self.tokens[i + start].kind == Token.Iden:
+                if self.stores.search_consts_vars_dict(self.tokens[i + start].literal) != None:
+                    self.tokens[i + start] = self.stores.search_consts_vars_dict(self.tokens[i + start].literal).token
+                else:
+                    die(f'\'{self.tokens[i + start].literal}\' undefined constant/variable : line {self.line_num}')
+            elif self.tokens[i + start].kind == Token.Num:
+                if i + start + 1 < len(self.tokens) and \
+                   self.tokens[i + start + 1].kind != Token.Add and \
+                   self.tokens[i + start + 1].kind != Token.Sub and \
+                   self.tokens[i + start + 1].kind != Token.Mul and \
+                   self.tokens[i + start + 1].kind != Token.Div:
+                    die(f'\'{self.tokens[i + start + 1].literal}\' expected symbol : line {self.line_num}')
+            elif self.tokens[i + start].kind != Token.Add and \
+                 self.tokens[i + start].kind != Token.Sub and \
+                 self.tokens[i + start].kind != Token.Mul and \
+                 self.tokens[i + start].kind != Token.Div:
+                if i + start + 1 < len(self.tokens) and self.tokens[i + start + 1].kind != Token.Num:
+                    die(f'\'{self.tokens[i + start + 1].literal}\' expected number : line {self.line_num}')
+            
+            i += 1
+        
+        i = 0
+        buffer = ''
+        while i + start < len(self.tokens):
+            buffer += self.tokens[i + start].literal + ' '
+            i += 1
+
+        return Token(Token.Num, eval(buffer))
+
     def parse(self):
         if len(self.tokens) == 0:
             self.line_num += 1
@@ -212,52 +271,6 @@ class Parser:
                         return
                 
                 die(f'\'{self.tokens[1].literal}\' could not be found : line {self.line_num}')
-            case Token.Constant:
-                if len(self.tokens) != 4:
-                    die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
-                
-                if self.stores.in_procedure:
-                    die(f'\'{self.tokens[0].literal}\' can not be in procedures : line {self.line_num}')
-
-                if self.tokens[1].kind != Token.Iden:
-                    die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
-
-                if self.stores.search_consts_vars_dict(self.tokens[1].literal) != None:
-                    die(f'\'{self.tokens[1].literal}\' redefined constant/variable : line {self.line_num}')
-
-                if self.tokens[2].kind != Token.Eq:
-                    die(f'\'{self.tokens[2].literal}\' expected equals : line {self.line_num}')
-
-                if self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[3].literal) == None:
-                        die(f'\'{self.tokens[3].literal}\' undefined constant/variable : line {self.line_num}')
-                    else:
-                        self.tokens[3] = self.stores.search_consts_vars_dict(self.tokens[2].literal).token
-                
-                self.stores.lpl_global_consts_vars_dict[self.tokens[1].literal] = DataType(self.tokens[2], True)
-            case Token.Variable:
-                if len(self.tokens) != 4:
-                    die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
-                
-                if self.stores.in_procedure:
-                    die(f'\'{self.tokens[0].literal}\' can not be in procedures : line {self.line_num}')
-
-                if self.tokens[1].kind != Token.Iden:
-                    die(f'\'{self.tokens[1].literal}\' expected literal : line {self.line_num}')
-
-                if self.stores.search_consts_vars_dict(self.tokens[1].literal) != None:
-                    die(f'\'{self.tokens[1].literal}\' redefined constant/variable : line {self.line_num}')
-
-                if self.tokens[2].kind != Token.Eq:
-                    die(f'\'{self.tokens[2].literal}\' expected equals : line {self.line_num}')
-
-                if self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[3].literal) == None:
-                        die(f'\'{self.tokens[3].literal}\' undefined constant/variable : line {self.line_num}')
-                    else:
-                        self.tokens[3] = self.stores.search_consts_vars_dict(self.tokens[2].literal).token
-                
-                self.stores.lpl_global_consts_vars_dict[self.tokens[1].literal] = DataType(self.tokens[2], False)
             case Token.Procedure:
                 if self.stores.in_procedure:
                     die(f'\'{self.tokens[0].literal}\' can not be nested : line {self.line_num}')
@@ -273,36 +286,33 @@ class Parser:
 
                 if self.stores.search_procedures_dict(self.tokens[1].literal) != None:
                     die(f'\'{self.tokens[1].literal}\' redefined procedure : line {self.line_num}')
-            case Token.If:
-                if len(self.tokens) != 4:
-                    die(f'\'{self.tokens[0].literal}\' requires 3 parameter : line {self.line_num}')
+            # case Token.If:
+            #     if len(self.tokens) != 4:
+            #         die(f'\'{self.tokens[0].literal}\' requires 3 parameter : line {self.line_num}')
 
-                if self.tokens[1].kind != Token.GT and \
-                   self.tokens[1].kind != Token.LT and \
-                   self.tokens[1].kind != Token.Eq:
-                    die(f'\'{self.tokens[1].literal}\' invalid operand : line {self.line_num}')
+            #     if self.tokens[1].kind != Token.GT and \
+            #        self.tokens[1].kind != Token.LT:
+            #         die(f'\'{self.tokens[1].literal}\' invalid operand : line {self.line_num}')
 
-                if self.tokens[2].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[2].literal) == None:
-                        die(f'\'{self.tokens[2].literal}\' undefined constant/variable : line {self.line_num}')
-                    else:
-                        self.tokens[2] = self.stores.search_consts_vars_dict(self.tokens[2].literal).token
-                elif self.tokens[3].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[3].literal) == None:
-                        die(f'\'{self.tokens[3].literal}\' undefined constant/variable : line {self.line_num}')
-                    else:
-                        self.tokens[3] = self.stores.search_consts_vars_dict(self.tokens[3].literal).token
-                elif self.tokens[2].kind == Token.String:
-                    if self.tokens[3].kind != Token.String:
-                        die(f'\'{self.tokens[3].literal}\' expected string : line {self.line_num}')
-                else:
-                    if self.tokens[2].kind != Token.Num: 
-                        die(f'\'{self.tokens[2].literal}\' expected string : line {self.line_num}')
-                    elif self.tokens[3].kind != Token.Num:
-                        die(f'\'{self.tokens[3].literal}\' expected string : line {self.line_num}')
-
-
-                self.stores.in_if = True
+            #     if self.tokens[2].kind == Token.Iden:
+            #         if self.stores.search_consts_vars_dict(self.tokens[2].literal) == None:
+            #             die(f'\'{self.tokens[2].literal}\' undefined constant/variable : line {self.line_num}')
+            #         else:
+            #             self.tokens[2] = self.stores.search_consts_vars_dict(self.tokens[2].literal).token
+            #     elif self.tokens[3].kind == Token.Iden:
+            #         if self.stores.search_consts_vars_dict(self.tokens[3].literal) == None:
+            #             die(f'\'{self.tokens[3].literal}\' undefined constant/variable : line {self.line_num}')
+            #         else:
+            #             self.tokens[3] = self.stores.search_consts_vars_dict(self.tokens[3].literal).token
+            #     elif self.tokens[2].kind == Token.String:
+            #         if self.tokens[3].kind != Token.String:
+            #             die(f'\'{self.tokens[3].literal}\' expected string : line {self.line_num}')
+            #     else:
+            #         if self.tokens[2].kind != Token.Num: 
+            #             die(f'\'{self.tokens[2].literal}\' expected string : line {self.line_num}')
+            #         elif self.tokens[3].kind != Token.Num:
+            #             die(f'\'{self.tokens[3].literal}\' expected string : line {self.line_num}')
+            #     self.stores.in_if = True
             case Token.End:
                 if len(self.tokens) != 1:
                     die(f'\'{self.tokens[0].literal}\' requires no parameters : line {self.line_num}')
@@ -312,38 +322,6 @@ class Parser:
                     self.stores.if_skip = False
                 else:
                     self.stores.in_procedure = False
-            case Token.Add | Token.Sub | Token.Mul | Token.Div:
-                if len(self.tokens) != 3:
-                    die(f'\'{self.tokens[0].literal}\' requires 2 parameters : line {self.line_num}')
-                
-                if self.tokens[1].kind != Token.Num and \
-                   self.tokens[1].kind != Token.Iden and not \
-                   self.is_store(self.tokens[1].kind):
-                    die(f'\'{self.tokens[1].literal}\' expected number/store/constant : line {self.line_num}')
-
-                if self.tokens[2].kind != Token.Num and \
-                   self.tokens[2].kind != Token.Iden and not \
-                   self.is_store(self.tokens[2].kind):
-                    die(f'\'{self.tokens[2].literal}\' expected number/store/constant : line {self.line_num}')
-
-                if self.tokens[1].kind == Token.StoreR:
-                    self.tokens[1] = self.get_store_data(self.tokens[1].kind)
-                    if self.tokens[1] == DataType(Token('', ''), None):
-                        die(f'\'{self.tokens[1].literal}\' not a store or result store is immutable : line {self.line_num}')
-                elif self.tokens[2].kind == Token.StoreR:
-                    self.tokens[2] = self.get_store_data(self.tokens[3].kind)
-                    if self.tokens[2] == Token('', ''):
-                        die(f'\'{self.tokens[2].literal}\' not a store or result store is immutable : line {self.line_num}')
-                elif self.tokens[1].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[1].literal) == None:
-                        die(f'\'{self.tokens[1].literal}\' undefined constant : line {self.line_num}')
-                    else:
-                        self.tokens[1] = self.stores.search_constants_dict(self.tokens[1].literal).token
-                elif self.tokens[2].kind == Token.Iden:
-                    if self.stores.search_consts_vars_dict(self.tokens[2].literal) == None:
-                        die(f'\'{self.tokens[2].literal}\' undefined constant : line {self.line_num}')
-                    else:
-                        self.tokens[2] = self.stores.search_consts_vars_dict(self.tokens[2].literal).token
             case Token.Echo:
                 if self.tokens[len(self.tokens) - 1].kind == Token.Comma:
                     die(f'\'{self.tokens[2].literal}\' expected number/string/store/constant : line {self.line_num}')
@@ -373,17 +351,28 @@ class Parser:
                 if self.tokens[1].kind != Token.String:
                     die(f'\'{self.tokens[1].literal}\' expected string : line {self.line_num}')
             case Token.Iden:
-                print(self.tokens[0].literal)
-                if len(self.tokens) != 2:
-                    die(f'\'{self.tokens[0].literal}\' requires 1 parameter : line {self.line_num}')
+                if len(self.tokens) < 3:
+                    die(f'\'{self.tokens[0].literal}\' requires atleast 2 parameters : line {self.line_num}')
+
+                if self.tokens[1].kind != Token.Eq:
+                    die(f'\'{self.tokens[1].literal}\' expected assign : line {self.line_num}')
 
                 if self.stores.search_consts_vars_dict(self.tokens[0].literal) != None:
                     if self.stores.search_consts_vars_dict(self.tokens[0].literal).is_const:
                         die(f'\'{self.tokens[0].literal}\' can not be reassigned : line {self.line_num}')
-                    else:
-                        self.tokens[1] = self.stores.search_consts_vars_dict(self.tokens[0].literal).token
+                    elif self.tokens[2].kind == Token.Iden:
+                        print('var')
+                        if self.stores.search_consts_vars_dict(self.tokens[2].literal) != None:
+                            self.stores.lpl_global_consts_vars_dict[self.tokens[0].literal] = DataType(self.tokens[2], False)
+                        else:
+                            die(f'\'{self.tokens[2].literal}\' undefined constant/variable : line {self.line_num}')
                 else:
-                    die(f'\'{self.tokens[0].literal}\' undefined constant/variable : line {self.line_num}')
+                    if self.tokens[0].literal.isupper():
+                        self.stores.lpl_global_consts_vars_dict[self.tokens[0].literal] = DataType(self.parse_math(2), True)
+                    elif self.tokens[0].literal.islower():
+                        self.stores.lpl_global_consts_vars_dict[self.tokens[0].literal] = DataType(self.parse_math(2), False)
+            case Token.Num:
+                self.parse_math(0)
             case _:
                 die(f'\'{self.tokens[0].literal}\' unknown literal : line {self.line_num}')
 
@@ -451,14 +440,6 @@ class Interpreter:
                                 self.stores.if_skip = True
                 case Token.End:
                     self.stores.procedure_index += 1
-                case Token.Add:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) + float(self.tokens[2].literal)))
-                case Token.Sub:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) - float(self.tokens[2].literal)))
-                case Token.Mul:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) * float(self.tokens[2].literal)))
-                case Token.Div:
-                    self.stores.lpl_store_r = Token(Token.Num, str(float(self.tokens[1].literal) / float(self.tokens[2].literal)))
                 case Token.Echo:
                     for element in self.tokens:
                         if element.kind == Token.Num or element.kind == Token.String:
@@ -476,7 +457,7 @@ class Interpreter:
                     if is_num and stdin != '':
                         self.stores.lpl_store_r = Token(Token.Num, stdin)
                     elif stdin != '':
-                        self.stores.lpl_store_r = Token(Token.String, stdin)
+                        self.stores.lpl_store_r = Token(Token.String, stdin)                    
 
 if __name__ == '__main__':
     args = sys.argv
@@ -504,7 +485,8 @@ if __name__ == '__main__':
         parser.tokens = lexer.tokens
         parser.parse()
 
-        
+        #for token in parser.tokens:
+        #    print(token.kind, token.literal)
 
         interpreter = Interpreter(parser.tokens, stores)
         interpreter.interpret()

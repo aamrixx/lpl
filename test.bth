@@ -1,17 +1,2 @@
-# The LPL Test file for debugging
-
-import "std.bth"
-
-proc main
-    if > 3 2
-        echo "Smaller"
-    end
-
-    if < 3 5
-        echo "Bigger"
-    end
-
-    echo "end of main"
-end
-
-run main
+Y = 123
+x = Y - 2
