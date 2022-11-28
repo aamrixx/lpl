@@ -22,6 +22,7 @@ class Token:
     Div = 'Div'
     LT = 'LT'
     GT = 'GT'
+    Eq = 'Eq'
     # Keywords
     Run = 'Run'
     Import = 'Import'
@@ -66,6 +67,8 @@ class Lexer:
                     self.tokens.append(Token(Token.GT, '>'))
                 case '<':
                     self.tokens.append(Token(Token.LT, '<'))
+                case '=':
+                    self.tokens.append(Token(Token.Eq, '='))
                 case ',':
                     self.tokens.append(Token(Token.Comma, ','))
                 case '^':
@@ -109,6 +112,11 @@ class Lexer:
                         case 'read':
                             self.tokens.append(Token(Token.Read, 'read'))
                         case _:
+                            if len(self.tokens) - 1 != 0 and \
+                               self.tokens[len(self.tokens) - 1].kind == Token.Sub:
+                                buffer = '-' + buffer
+                                self.tokens.pop()
+
                             is_num = True
                             for char in buffer:
                                 if not char.isdigit() and char != '.' and char != '-':
@@ -260,7 +268,9 @@ class Parser:
                 if len(self.tokens) != 4:
                     die(f'\'{self.tokens[0].literal}\' requires 3 parameter : line {self.line_num}')
 
-                if self.tokens[1].kind != Token.GT and self.tokens[1].kind != Token.LT:
+                if self.tokens[1].kind != Token.GT and \
+                   self.tokens[1].kind != Token.LT and \
+                   self.tokens[1].kind != Token.Eq:
                     die(f'\'{self.tokens[1].literal}\' invalid operand : line {self.line_num}')
 
                 if self.tokens[2].kind != Token.Num or self.tokens[3].kind != Token.Num:
@@ -393,10 +403,13 @@ class Interpreter:
                 case Token.If:
                     match self.tokens[1].kind:
                         case Token.LT:
-                            if not (float(self.tokens[2].literal) < float(self.tokens[3].literal)):
+                            if not (self.tokens[2].literal < self.tokens[3].literal):
                                 self.stores.if_skip = True
                         case Token.GT:
-                            if not (float(self.tokens[2].literal) > float(self.tokens[3].literal)):
+                            if not (self.tokens[2].literal > self.tokens[3].literal):
+                                self.stores.if_skip = True
+                        case Token.Eq:
+                            if not (self.tokens[2].literal == self.tokens[3].literal):
                                 self.stores.if_skip = True
                 case Token.End:
                     self.stores.procedure_index += 1
@@ -447,11 +460,13 @@ if __name__ == '__main__':
         lexer = Lexer(line)
         lexer.lex()
 
+        for token in lexer.tokens:
+            print(token.kind, token.literal)
+
         parser.tokens = lexer.tokens
         parser.parse()
 
-        for token in parser.tokens:
-            print(token.kind, token.literal)
+        
 
         interpreter = Interpreter(parser.tokens, stores)
         interpreter.interpret()

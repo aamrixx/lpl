@@ -1,0 +1,12 @@
+# Test constant parser
+
+const t1 3
+const t2 3.14159
+const t3 -3.14159
+const t4 -3
+
+# Redefininition
+const t1 x
+
+# Undefined
+const x y

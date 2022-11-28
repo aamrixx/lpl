@@ -1,0 +1,12 @@
+# Test variable parser
+
+var t1 3
+var t2 3.14159
+var t3 -3.14159
+var t4 -3
+
+# Redefininition
+var t1 x
+
+# Undefined
+var x y

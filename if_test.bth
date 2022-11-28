@@ -1,0 +1,28 @@
+# Test if statements
+
+# Equality
+if = 2 2
+    echo "2 and 2 is equal"
+end
+
+if = 2 3
+    echo "2 and 3 is equal"
+end
+
+# Greater than
+if > 3 2
+    echo "3 is greater than 2"
+end
+
+if > 2 3
+    echo "2 is greater than 3"
+end
+
+# Less than
+if < 2 3
+    echo "2 is less than 3"
+end
+
+if = 2 3
+    echo "3 is less than 2"
+end
