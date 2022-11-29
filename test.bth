@@ -1,2 +1,10 @@
-Y = 123
-x = Y - 2
+Y = "Hello"
+
+if Y == Y and Y == "Hell"
+    echo "eq"
+end
+
+if "Hello" == Y
+    echo "eq"
+end
+
