@@ -1,2 +1,12 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
+def main()
+    if ARGV.length != 1 then
+        puts "usage : #{$0} [file]"
+        exit(1)
+    end
+
+
+end
+
+main
