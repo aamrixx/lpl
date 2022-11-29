@@ -1,10 +1,9 @@
 Y = "Hello"
 
-if Y == Y and Y == "Hell"
+if Y == "Hello" or Y == "Hell"
     echo "eq"
 end
 
 if "Hello" == Y
     echo "eq"
 end
-
